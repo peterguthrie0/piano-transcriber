@@ -31,3 +31,6 @@ samples/*.xml
 # Environment files
 .env
 .env.local
+
+# Claude
+.claude/
