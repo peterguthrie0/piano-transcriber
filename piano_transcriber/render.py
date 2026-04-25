@@ -13,9 +13,11 @@ import cairosvg
 import pypdf
 import verovio
 
-A4_HEIGHT_TENTHS = 2970
+# Verovio works in MEI tenths-of-a-mm. A4 = 210 × 297 mm.
 A4_WIDTH_TENTHS = 2100
-DEFAULT_SCALE = 40
+A4_HEIGHT_TENTHS = 2970
+A4_WIDTH_MM = 210
+A4_HEIGHT_MM = 297
 
 
 def render_pdf(musicxml_path: Path, pdf_path: Path) -> Path:
@@ -23,7 +25,6 @@ def render_pdf(musicxml_path: Path, pdf_path: Path) -> Path:
     tk.setOptions({
         "pageHeight": A4_HEIGHT_TENTHS,
         "pageWidth": A4_WIDTH_TENTHS,
-        "scale": DEFAULT_SCALE,
         "adjustPageHeight": False,
     })
     if not tk.loadFile(str(musicxml_path)):
@@ -33,9 +34,21 @@ def render_pdf(musicxml_path: Path, pdf_path: Path) -> Path:
     if page_count == 0:
         raise RuntimeError(f"Verovio produced 0 pages from {musicxml_path}")
 
+    # Verovio emits SVGs declared in px with no viewBox; cairosvg then treats
+    # the declared px size as a literal clip region, cutting off any drawing
+    # coords beyond it. Replace with mm dimensions + a viewBox so cairosvg
+    # rescales the coordinate system into a true A4 PDF page.
+    sized_header = (
+        f'width="{A4_WIDTH_TENTHS}px" height="{A4_HEIGHT_TENTHS}px"'
+    )
+    fixed_header = (
+        f'width="{A4_WIDTH_MM}mm" height="{A4_HEIGHT_MM}mm" '
+        f'viewBox="0 0 {A4_WIDTH_TENTHS} {A4_HEIGHT_TENTHS}"'
+    )
+
     writer = pypdf.PdfWriter()
     for page_no in range(1, page_count + 1):
-        svg = tk.renderToSVG(page_no)
+        svg = tk.renderToSVG(page_no).replace(sized_header, fixed_header, 1)
         pdf_bytes = cairosvg.svg2pdf(bytestring=svg.encode("utf-8"))
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
         for page in reader.pages:

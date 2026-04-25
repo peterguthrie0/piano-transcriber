@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
+import logging
 import sys
+import warnings
 from pathlib import Path
 
 from piano_transcriber.pipeline import transcribe_to_pdf
@@ -36,6 +40,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="If set, save the intermediate MusicXML to this path.",
     )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Suppress dependency warnings and ML-backend progress output.",
+    )
     args = parser.parse_args(argv)
 
     if not args.audio.exists():
@@ -48,15 +58,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: --quantize must be comma-separated integers, got: {args.quantize}", file=sys.stderr)
         return 2
 
-    print(f"Transcribing {args.audio} with model '{args.model}'...", file=sys.stderr)
-    transcribe_to_pdf(
-        args.audio,
-        args.output,
-        model=args.model,
-        quantization=quantization,
-        musicxml_path=args.keep_musicxml,
-    )
-    print(f"Wrote {args.output}", file=sys.stderr)
+    if args.quiet:
+        warnings.filterwarnings("ignore")
+        logging.getLogger().setLevel(logging.ERROR)
+        # basic-pitch and coremltools both print() progress and warnings to
+        # stdout at import/predict time. Swallow stdout for the whole pipeline;
+        # our own status messages already go to stderr.
+        stdout_ctx: contextlib.AbstractContextManager = contextlib.redirect_stdout(io.StringIO())
+    else:
+        print(f"Transcribing {args.audio} with model '{args.model}'...", file=sys.stderr)
+        stdout_ctx = contextlib.nullcontext()
+
+    with stdout_ctx:
+        transcribe_to_pdf(
+            args.audio,
+            args.output,
+            model=args.model,
+            quantization=quantization,
+            musicxml_path=args.keep_musicxml,
+        )
+
+    if not args.quiet:
+        print(f"Wrote {args.output}", file=sys.stderr)
     return 0
 
 
