@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Project-specific
+.model_cache/
+samples/*.pdf
+samples/*.mid
+samples/*.midi
+samples/*.musicxml
+samples/*.xml
+
+# Environment files
+.env
+.env.local
